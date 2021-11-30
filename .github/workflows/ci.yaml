@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'
+    tags-ingnore:
+      - '**'
+env:
+  NODE_VERSION: '16.x'
+  NPM_REGISTRY_URL: 'https://registry.npmjs.org'
+
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+  SLACK_CHANNEL: '#dev'
+  SLACK_USERNAME: luke
+
+  SLACK_BUILD_START_TITLE: ":rocket: Build Start"
+  SLACK_BUILD_SUCCESS_TITLE: ":tada: Build Sucess"
+  SLACK_BUILD_FAILURE_TITLE: ":see_no_evil: Build Failure"
+
+  GITHUB_AUTHOR_ICON: ${{ github.event.sender.avatar_url }}
+  GITHUB_ICON: ":gitcat:"
+  GITHUB_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+  GITHUB_REPOSITORY: ${{ github.repository }}
+  GITHUB_EVENT: ${{ github.event_name }}
+
+  #SLACK_TEST_START_TITLE: ":test: Test Start"
+  #SLACK_TEST_SUCCESS_TITLE: ":tada: Test Sucess"
+  #SLACK_TEST_FAILURE_TITLE: ":see_no_evil: Test Failure"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Git checkout@v2
+        uses: actions/checkout@v2
+
+      - name: Use Node.js ${{ env.NODE_VER }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: ${{ env.NPM_REGISTRY_URL }}
+
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_READ_ONLY }}
+        run: npm ci
+
+      - name: Send Build-Start Notification to Slack
+        env:
+          SLACK_TITLE: ${{ env.SLACK_BUILD_START_TITLE }}
+        run: |
+          node ./bin/index.js notify
+          npm run build 
+
+      - name: Build Project
+        run: |
+          npm run build 
+
+      - name: Send Build-Result-Sucess Notification to Slack
+        env:
+          SLACK_TITLE: ${{ env.SLACK_BUILD_SUCCESS_TITLE }}
+        if: success()
+        run: node ./bin/index.js notify 
+
+      - name: Send Build-Result-Failure Notification to Slack
+        env:
+          SLACK_TITLE: ${{ env.SLACK_BUILD_FAILURE_TITLE }}
+        if: failure()
+        run: node ./bin/index.js notify
+
